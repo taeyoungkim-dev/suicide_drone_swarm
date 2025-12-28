@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <model name="red_balloon">
+    <static>true</static>
+    <link name="balloon_link">
+      <pose>0 0 1.5 0 0 0</pose>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.0001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0001</iyy>
+          <iyz>0</iyz>
+          <izz>0.0001</izz>
+        </inertia>
+      </inertial>
+      <collision name="balloon_collision">
+        <geometry>
+          <sphere>
+            <radius>0.3</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <contact>
+            <collide_bitmask>0x01</collide_bitmask>
+          </contact>
+        </surface>
+      </collision>
+      <visual name="balloon_visual">
+        <geometry>
+          <sphere>
+            <radius>0.3</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <specular>0.5 0.5 0.5 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
