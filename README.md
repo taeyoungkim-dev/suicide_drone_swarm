@@ -8,7 +8,8 @@ MicroXRCEAgent udp4 -p 8888
 ## PX4Swarm
 cd ~/PX4Swarm/Tools/simulation/gazebo-classic
 
-./sitl_multiple_run.sh -m iris -n 5(Number of drone) -w ../../../../../../suicide_drone_swarm/src/simulation/worlds/pure
+**Change number of drone. -n <num of drone>
+./sitl_multiple_run.sh -m iris -n 5 -w ../../../../../../suicide_drone_swarm/src/simulation/worlds/pure
 
 ## ROS2 scripts
 python3 ~/suicide_drone_swarm/scripts/hover_test.py
