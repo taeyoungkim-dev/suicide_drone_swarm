@@ -3,6 +3,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from px4_msgs.msg import TrajectorySetpoint, VehicleCommand, OffboardControlMode
+import pymap3d as pm
 
 # === ⚙️ 설정 구역 ===
 TARGET_DRONE_IDS = [2, 3, 4, 5, 6]
@@ -22,7 +23,9 @@ LAUNCH_GAP_SEC = 1.0
 class DroneController(Node):
     # [수정] start_delay 인자 추가 (기본값 0)
     def __init__(self, drone_id, start_delay_sec=0.0):
+        # calling parent class contructor
         super().__init__(f'{drone_id}_node')
+        # attributes
         self.drone_id = drone_id
         self.namespace = f"/{drone_id}"
         
