@@ -10,14 +10,14 @@ TARGET_DRONE_IDS = [2, 3, 4, 5, 6]
 SWAP_XY = True 
 
 # 좌표 설정
-GLOBAL_TARGET_X = 22.0
-GLOBAL_TARGET_Y = 12.0
-GLOBAL_TARGET_Z = -6.7
+GLOBAL_TARGET_X = -10.0
+GLOBAL_TARGET_Y = 10.0
+GLOBAL_TARGET_Z = -6.0 -1.0
 SPAWN_Y_INTERVAL = 3.0
 
 # [추가] 드론 간 순차 출발 간격 (초 단위)
 # 1.5초마다 한 대씩 이륙합니다.
-LAUNCH_GAP_SEC = 1.0
+LAUNCH_GAP_SEC = 0.0
 # ===================
 
 class DroneController(Node):
@@ -40,11 +40,6 @@ class DroneController(Node):
         
         calc_x = GLOBAL_TARGET_X - my_spawn_global_x
         calc_y = GLOBAL_TARGET_Y - my_spawn_global_y
-        
-        #drone 2 보정
-        if drone_id == "drone2" :
-            print("Drone 2 보정됨")
-            calc_y += 0.5
 
         if SWAP_XY:
             self.target_pos = [calc_y, calc_x, GLOBAL_TARGET_Z]

@@ -12,9 +12,9 @@ class StrikeNode(Node):
         # Gazebo 좌표: x=0, y=15, z=5 (위로 5m)
         # PX4(NED) 좌표 변환: z는 부호를 반대로(-5.0) 해야 위로 갑니다.
         # (만약 엉뚱한 방향으로 가면 y를 -15.0으로 바꿔보세요)
-        self.target_pos = [15.0, 0.0, -6.5]
+        self.target_pos = [0.0, 0.0, -6-1.0]
         
-        self.namespace = "/drone1"
+        self.namespace = "/drone2"
         print(f"💀 SUICIDE MISSION START! Target: {self.target_pos}")
 
         # QoS 설정
@@ -44,7 +44,7 @@ class StrikeNode(Node):
         msg.command = command
         msg.param1 = param1
         msg.param2 = param2
-        msg.target_system = 1
+        msg.target_system = 2
         msg.target_component = 1
         msg.source_system = 1
         msg.source_component = 1

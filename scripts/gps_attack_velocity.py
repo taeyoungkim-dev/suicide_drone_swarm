@@ -10,9 +10,9 @@ ORIGIN_LON = 8.545594
 ORIGIN_ALT = 0.0
 
 ###Warning!!!! 목표물 X 좌표를 반드시 음수로 해야함.
-BALLOON_GAZEBO_X = 5.0  # 풍선 빨강축
-BALLOON_GAZEBO_Y = 5.0  # 풍선 초록축
-BALLOON_GAZEBO_Z = 5.0  # 풍선 높이
+BALLOON_GAZEBO_X = -10.0  # 풍선 빨강축
+BALLOON_GAZEBO_Y = 10.0  # 풍선 초록축
+BALLOON_GAZEBO_Z = 3.0-1  # 풍선 높이
 
 # 2. 좌표 변환 (발견한 규칙 적용)
 # 드론 X (North) <== 풍선 Y (Green)
@@ -22,7 +22,7 @@ BALLOON_GAZEBO_Z = 5.0  # 풍선 높이
 TARGET_ABSOLUTE = [
     BALLOON_GAZEBO_Y,                   # 드론 X 자리에 풍선 Y 값 넣기
     BALLOON_GAZEBO_X,                   # 드론 Y 자리에 풍선 X 값 넣기
-    -BALLOON_GAZEBO_Z-1 # Z축 비율 뻥튀기 후 마이너스(위로)
+    -BALLOON_GAZEBO_Z #offset 적용
 ]
 
 class Global_position_control(Node):
@@ -97,6 +97,9 @@ class Global_position_control(Node):
         self.target_absolute = TARGET_ABSOLUTE
         self.target_global = [None,None,None]
         self.target_local = [None,None,None]
+        
+        self.p_gain = 1.0       # 비례 제어 상수 (값이 클수록 목표에 빨리 반응하지만 오버슈트 위험)
+        self.max_speed = 5.0    # 최대 속도 (m/s)
         
         self.timer = self.create_timer(0.1,self.timer_callback)
         self.counter = 0
@@ -173,26 +176,40 @@ class Global_position_control(Node):
     def send_offboard(self):
         off_msg = OffboardControlMode()
         off_msg.timestamp = int(self.get_clock().now().nanoseconds/1000)
-        #위치 기반 이동 선언
-        off_msg.position = True
-        #off_msg.velocity 속도 기반
+        off_msg.position = False
+        #속도 기반 이동 선언
+        off_msg.velocity = True
         #off_msg.attitude 기체 기울기(자세)
         #Publish
         self.offboard_pub.publish(off_msg)
 
     #trajecotry publishing
-    def send_trajectory(self):
+    def send_velocity_trajectory(self):
         traj_msg = TrajectorySetpoint()
         #메세지 생성 시각 기록
         traj_msg.timestamp = int(self.get_clock().now().nanoseconds/1000)
-        #목표 지점 local 좌표
-        traj_msg.position = self.target_local
-        #Heading 방향
-        traj_msg.yaw = math.atan2(
-            self.target_local[1] - self.current_local.y,
-            self.target_local[0] - self.current_local.x
-        )
-        #publish
+        
+        err_x = self.target_local[0] - self.current_local.x
+        err_y = self.target_local[1] - self.current_local.y
+        err_z = self.target_local[2] - self.current_local.z
+        
+        vel_x = err_x * self.p_gain
+        vel_y = err_y * self.p_gain
+        vel_z = err_z * self.p_gain
+        
+        current_speed_sq = vel_x**2 + vel_y**2 + vel_z**2
+        if current_speed_sq > self.max_speed**2:
+            scale = self.max_speed / math.sqrt(current_speed_sq)
+            vel_x *= scale
+            vel_y *= scale
+            vel_z *= scale
+            
+        traj_msg.position = [float('nan'), float('nan'), float('nan')]
+        traj_msg.velocity = [float(vel_x), float(vel_y), float(vel_z)]
+        
+        # Yaw는 목표 지점을 바라보도록 설정
+        traj_msg.yaw = math.atan2(err_y, err_x)
+
         self.trajectory_pub.publish(traj_msg)
         
     def timer_callback(self):
@@ -214,7 +231,7 @@ class Global_position_control(Node):
             return      
         
         #trajectory publish
-        self.send_trajectory()
+        self.send_velocity_trajectory()
         
         #offboard
         if 40 <= self.counter < 50:
