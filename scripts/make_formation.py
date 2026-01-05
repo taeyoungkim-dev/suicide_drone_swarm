@@ -1,19 +1,15 @@
-#TODO
-#formation 잡을 때와 attack 할 때 yaw 설정
-#공격할 때 드론 끼리 부딧힘. formation 간격 늘려보기
-#드론이 일제히 출발하지 않음. 모든 드론이 준비되면 일제히 공격하는 로직 필요
 import rclpy
 import math
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import TrajectorySetpoint, VehicleCommand, OffboardControlMode, VehicleOdometry
+from px4_msgs.msg import TrajectorySetpoint, VehicleCommand, OffboardControlMode
 
 
 #--------------------------------수정---------------------------------#
 NUM_OF_DRONE = 10
 #.world 좌표계 기준 목표 위치
-#풍선은 z에 +1 해줘야함
+#풍선은 1.5정도 좌표 차이가 나기 때문에 .world 파일 z 좌표를 1.5정도 빼주길 권장
 INPUT_TARGET_LOCATION = [0.0, -10.0, 5.0]
 #드론 소환 (3,0,-0.2) , (6,0,-0.2) , (9,0,-0.2) , (12,0,-0.2) ...
 DRONE_SPAWN_X_GAP = 3.0
@@ -64,22 +60,8 @@ class DroneController(Node):
             DRONE_SPAWN_Y,
             DRONE_SPAWN_Z
         ]
-        
         #목표 위치
         self.target_absolute = TARGET_ABSOLUTE
-        
-        #현재 드론 위치
-        self.current_absolute = [0.0,0.0,0.0]
-        
-        #0:대형 이동, 1: 도착 후 대기, 2: 목표 공격
-        self.mission_phase = 0
-        
-        #도착 후 대기 시간 카운터
-        self.wait_counter = 0
-        self.how_much_wait = 40
-        
-        # 마지막 목표 벡터
-        self.last_aiming = [0.0,0.0,0.0]
 
         qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -107,14 +89,6 @@ class DroneController(Node):
             qos
         )
 
-        #Subscriber
-        self.odometry_sub = self.create_subscription(
-            VehicleOdometry,
-            f'{self.namespace}/fmu/out/vehicle_odometry',
-            self.odometry_cb,
-            qos
-        )
-        
         self.timer = self.create_timer(0.1, self.timer_callback)
         self.counter = 0
         #CHANGE
@@ -130,7 +104,8 @@ class DroneController(Node):
         #off_msg.attitude 기체 기울기(자세)
         #Publish
         self.offboard_pub.publish(off_msg)
- 
+
+    #TODO 궤도 항법 적용 필요 
     def send_trajectory(self):
         traj_msg = TrajectorySetpoint()
         #메세지 생성 시각 기록
@@ -138,88 +113,22 @@ class DroneController(Node):
         
         #-----------------------궤도 항법 계산-----------------------#
         #대형 갖추기
-        if self.mission_phase == 0:
-            #대형 위치 계산
-            formation_position = FORMATION_PATTERN(self.drone_id - 2, NUM_OF_DRONE)
-            #드론 스폰 중심 좌표계로 변환
-            formation_position_local = [
-                float(formation_position[0] - self.drone_spawn_absolute[0]),
-                float(formation_position[1] - self.drone_spawn_absolute[1]),
-                float(formation_position[2] - self.drone_spawn_absolute[2]),
-            ]
-            #msg position 작성
-            traj_msg.position[0] = formation_position_local[0]
-            traj_msg.position[1] = formation_position_local[1]
-            traj_msg.position[2] = formation_position_local[2]
-            #TODO 어디를 볼 것인가 못정함
-            traj_msg.yaw = 0.0
-            #publish
-            self.trajectory_pub.publish(traj_msg)
-            #대형 도착 확인
-            distance = math.sqrt(
-                (self.current_absolute[0] - (self.drone_spawn_absolute[0] + formation_position_local[0]))**2 +
-                (self.current_absolute[1] - (self.drone_spawn_absolute[1] + formation_position_local[1]))**2 +
-                (self.current_absolute[2] - (self.drone_spawn_absolute[2] + formation_position_local[2]))**2
-            )
-            #CHANGE 도착 허용 오차 조정
-            if distance < 0.3:
-                self.mission_phase = 1
-                print(f"{self.drone_id} 대형 도착 완료")
+        formation_position = FORMATION_PATTERN(self.drone_id - 2, NUM_OF_DRONE)
+        formation_position_local = [
+            float(formation_position[0] - self.drone_spawn_absolute[0]),
+            float(formation_position[1] - self.drone_spawn_absolute[1]),
+            float(formation_position[2] - self.drone_spawn_absolute[2]),
+        ]
         
-        elif self.mission_phase == 1:
-            #대형 도착 후 대기
-            #대기 중에도 위치 유지 명령 지속 전송
-            formation_position = FORMATION_PATTERN(self.drone_id - 2, NUM_OF_DRONE)
-
-            formation_position_local = [
-                float(formation_position[0] - self.drone_spawn_absolute[0]),
-                float(formation_position[1] - self.drone_spawn_absolute[1]),
-                float(formation_position[2] - self.drone_spawn_absolute[2]),
-            ]
-
-            traj_msg.position[0] = formation_position_local[0]
-            traj_msg.position[1] = formation_position_local[1]
-            traj_msg.position[2] = formation_position_local[2]
-            #TODO 어디를 볼 것인가 못정함
-            traj_msg.yaw = 0.0
-
-            self.trajectory_pub.publish(traj_msg)
-            
-            #대기 시간 카운터 증가
-            self.wait_counter += 1
-            if self.wait_counter >= self.how_much_wait:
-                self.mission_phase = 2
-                print(f"{self.drone_id} 목표 공격 시작")
-                
-        #목표 공격 단계        
-        elif self.mission_phase == 2:
-            vec_x = self.target_absolute[0] - self.current_absolute[0]
-            vec_y = self.target_absolute[1] - self.current_absolute[1]
-            vec_z = self.target_absolute[2] - self.current_absolute[2]
-            distance = math.sqrt(vec_x**2 + vec_y**2 + vec_z**2)
-            
-            if distance > 0.1:
-                unit_x = vec_x / distance
-                unit_y = vec_y / distance
-                unit_z = vec_z / distance
-                
-                #CHANGE 목표 지점보다 약간 더 나아간 지점 설정
-                overshoot_distance = 5.0
-                traj_msg.position[0] = float(self.target_absolute[0] + unit_x * overshoot_distance - self.drone_spawn_absolute[0])
-                traj_msg.position[1] = float(self.target_absolute[1] + unit_y * overshoot_distance - self.drone_spawn_absolute[1])
-                traj_msg.position[2] = float(self.target_absolute[2] + unit_z * overshoot_distance - self.drone_spawn_absolute[2])
-                self.last_aiming = [traj_msg.position[0], traj_msg.position[1], traj_msg.position[2]]
-                #TODO 어디를 볼 것인가 못정함
-                traj_msg.yaw = 0.0
-            
-            else :
-                traj_msg.position[0] = self.last_aiming[0]
-                traj_msg.position[1] = self.last_aiming[1]
-                traj_msg.position[2] = self.last_aiming[2]
-                traj_msg.yaw = 0.0
-            
-            self.trajectory_pub.publish(traj_msg)
-                
+        traj_msg.position[0] = formation_position_local[0]
+        traj_msg.position[1] = formation_position_local[1]
+        traj_msg.position[2] = formation_position_local[2]
+        #TODO 어디를 볼 것인가 못정함
+        traj_msg.yaw = 0.0
+        #TODO 대형 포지션에 도착했는지 확인
+        #TODO 목표 공격
+        #publish
+        self.trajectory_pub.publish(traj_msg)
 
     def send_command(self, command, param1=0.0, param2=0.0):
         msg = VehicleCommand()
@@ -233,11 +142,6 @@ class DroneController(Node):
         msg.source_component = 1
         msg.from_external = True
         self.command_pub.publish(msg)
-        
-    def odometry_cb(self, msg):
-        self.current_absolute[0] = msg.position[0] + self.drone_spawn_absolute[0]
-        self.current_absolute[1] = msg.position[1] + self.drone_spawn_absolute[1]
-        self.current_absolute[2] = msg.position[2] + self.drone_spawn_absolute[2]
 
     def timer_callback(self):
 
