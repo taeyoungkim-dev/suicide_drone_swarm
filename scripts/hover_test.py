@@ -9,7 +9,7 @@ class HoverNode(Node):
         
         # === [중요] 네임스페이스 설정 ===
         # 아까 ros2 topic list에서 확인한 이름이 'drone1'이었으므로 이걸 붙여야 합니다.
-        self.namespace = "/drone1" 
+        self.namespace = "/drone2" 
         self.target_pos = [0.0, 0.0, -5.0]
 
         print(f"🚁 Hovering Test Start! Target: {self.target_pos}")
@@ -41,7 +41,7 @@ class HoverNode(Node):
         msg.command = command
         msg.param1 = param1
         msg.param2 = param2
-        msg.target_system = 1
+        msg.target_system = 2
         msg.target_component = 1
         msg.source_system = 1
         msg.source_component = 1
