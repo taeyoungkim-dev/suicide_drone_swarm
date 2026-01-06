@@ -1,3 +1,4 @@
+#해결(시간 지연 대형 갖추기) - 대형 갖출 때 경로 겹쳐서 출발 안하는 드론 있음.
 import rclpy
 import math
 from rclpy.node import Node
@@ -113,20 +114,36 @@ class DroneController(Node):
         
         #-----------------------궤도 항법 계산-----------------------#
         #대형 갖추기
+        #-----------------------설정 파라미터-----------------------#
+        #CHANGE
+        HOVER_ALTITUDE = -1.0          # 초기 이륙 고도 (m)
+        HOVER_WAIT_TIME = 50        # 모두 이륙 후 대기하는 시간 (100 ticks = 10초)
+        SEQUENCE_INTERVAL = 10      # 드론 별 출발 지연 시간 (50 ticks = 5초)
+        #---------------------------------------------------------#
         formation_position = FORMATION_PATTERN(self.drone_id - 2, NUM_OF_DRONE)
         formation_position_local = [
             float(formation_position[0] - self.drone_spawn_absolute[0]),
             float(formation_position[1] - self.drone_spawn_absolute[1]),
             float(formation_position[2] - self.drone_spawn_absolute[2]),
         ]
-        
-        traj_msg.position[0] = formation_position_local[0]
-        traj_msg.position[1] = formation_position_local[1]
-        traj_msg.position[2] = formation_position_local[2]
+
+        flight_time = self.counter - (self.warmup_steps+30)#send_command 타이밍 보정
+
+        my_start_time = HOVER_WAIT_TIME + (self.drone_id - 2) * SEQUENCE_INTERVAL
+
+        if flight_time < my_start_time:
+            # 내 차례가 오기 전까지는 스폰 위치 위 1m에서 대기
+            traj_msg.position[0] = 0.0
+            traj_msg.position[1] = 0.0
+            traj_msg.position[2] = HOVER_ALTITUDE
+        else:
+            # 내 차례가 되면 목표 대형 위치로 이동
+            traj_msg.position[0] = formation_position_local[0]
+            traj_msg.position[1] = formation_position_local[1]
+            traj_msg.position[2] = formation_position_local[2]
+
         #TODO 어디를 볼 것인가 못정함
         traj_msg.yaw = 0.0
-        #TODO 대형 포지션에 도착했는지 확인
-        #TODO 목표 공격
         #publish
         self.trajectory_pub.publish(traj_msg)
 
