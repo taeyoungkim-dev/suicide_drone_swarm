@@ -25,7 +25,7 @@ DRONE_SPAWN_Z = -0.2
 #[10,0,-5] 기준
 #대형 패턴 변경 시 이 부분을 수정
 #줄대형
-FORMATION_PATTERN = lambda i, n: [10.0, (i - (n-1)/2) * 2.0, -5.0]
+FORMATION_PATTERN = lambda i, n: [10.0, (i - (n-1)/2) * 4.0, -5.0]
 #V자 대형
 #FORMATION_PATTERN = lambda i, n: [10.0 - abs(i - (n-1)/2) * 2.0, (i - (n-1)/2) * 2.0, -5.0]
 #역 V자 대형
@@ -141,7 +141,7 @@ class DroneController(Node):
         self.timer = self.create_timer(0.1, self.timer_callback)
         self.counter = 0
         #CHANGE
-        self.warmup_steps = 50
+        self.warmup_steps = 30
 
     def send_offboard(self):
         off_msg = OffboardControlMode()
@@ -185,7 +185,7 @@ class DroneController(Node):
                 (self.current_absolute[2] - (self.drone_spawn_absolute[2] + formation_position_local[2]))**2
             )
             #CHANGE 도착 허용 오차 조정
-            if distance < 0.3:
+            if distance < 0.5:
                 self.mission_phase = 1
                 print(f"{self.drone_id} 대형 도착 완료")
         
