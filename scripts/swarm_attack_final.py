@@ -4,6 +4,7 @@
 #드론이 일제히 출발하지 않음. 모든 드론이 준비되면 일제히 공격하는 로직 필요
 import rclpy
 import math
+import threading
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
@@ -13,7 +14,7 @@ from px4_msgs.msg import TrajectorySetpoint, VehicleCommand, OffboardControlMode
 #--------------------------------수정---------------------------------#
 NUM_OF_DRONE = 10
 #.world 좌표계 기준 목표 위치
-#풍선은 z에 +1 해줘야함
+#풍선은 1.5정도 좌표 차이가 나기 때문에 .world 파일 z 좌표를 1.5정도 빼주길 권장
 INPUT_TARGET_LOCATION = [0.0, -10.0, 5.0]
 #드론 소환 (3,0,-0.2) , (6,0,-0.2) , (9,0,-0.2) , (12,0,-0.2) ...
 DRONE_SPAWN_X_GAP = 3.0
@@ -45,9 +46,29 @@ FORMATION_PATTERN = lambda i, n: [10.0, (i - (n-1)/2) * 2.0, -5.0]
 TARGET_DRONE_INDEX = [i for i in range(2,NUM_OF_DRONE+2)]
 TARGET_ABSOLUTE = [INPUT_TARGET_LOCATION[1],INPUT_TARGET_LOCATION[0],-INPUT_TARGET_LOCATION[2]]
 
+
+class MissionSync:
+    """Shared barrier so every drone jumps to phase 2 together."""
+
+    def __init__(self, total_drones: int) -> None:
+        self.total = total_drones
+        self.ready_set = set()
+        self.attack_released = False
+        self._lock = threading.Lock()
+
+    def mark_ready(self, drone_id: int) -> None:
+        with self._lock:
+            self.ready_set.add(drone_id)
+            if len(self.ready_set) >= self.total:
+                self.attack_released = True
+
+    def attack_allowed(self) -> bool:
+        with self._lock:
+            return self.attack_released
+
 class DroneController(Node):
 
-    def __init__(self,drone_id) :
+    def __init__(self,drone_id, mission_sync: MissionSync) :
 
         super().__init__(f'drone_{drone_id}_node')
         self.drone_id = drone_id
@@ -73,10 +94,12 @@ class DroneController(Node):
         
         #0:대형 이동, 1: 도착 후 대기, 2: 목표 공격
         self.mission_phase = 0
+        self.mission_sync = mission_sync
+        self.ready_reported = False
         
         #도착 후 대기 시간 카운터
         self.wait_counter = 0
-        self.how_much_wait = 40
+        self.how_much_wait = 0
         
         # 마지막 목표 벡터
         self.last_aiming = [0.0,0.0,0.0]
@@ -185,9 +208,13 @@ class DroneController(Node):
 
             self.trajectory_pub.publish(traj_msg)
             
-            #대기 시간 카운터 증가
-            self.wait_counter += 1
-            if self.wait_counter >= self.how_much_wait:
+            #대형 도착 여부를 한 번만 보고
+            if not self.ready_reported:
+                self.mission_sync.mark_ready(self.drone_id)
+                self.ready_reported = True
+
+            #모든 드론이 phase1이면 일제히 phase2로 전환
+            if self.mission_sync.attack_allowed():
                 self.mission_phase = 2
                 print(f"{self.drone_id} 목표 공격 시작")
                 
@@ -273,8 +300,10 @@ def main(args=None):
     executor = MultiThreadedExecutor()
     nodes = []
 
+    mission_sync = MissionSync(NUM_OF_DRONE)
+
     for drone_id in TARGET_DRONE_INDEX:
-        node = DroneController(drone_id)
+        node = DroneController(drone_id, mission_sync)
         nodes.append(node)
         executor.add_node(node)
     try:
