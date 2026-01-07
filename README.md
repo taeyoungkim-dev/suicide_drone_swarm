@@ -12,6 +12,10 @@ cd ~/PX4Swarm/Tools/simulation/gazebo-classic
 ./sitl_multiple_run.sh -m iris -n 5 -w ../../../../../../suicide_drone_swarm/src/simulation/worlds/pure
 
 ## ROS2 scripts
+
+python3 ~/suicide_drone_swarm/scripts/straight_swarm_attack.py
+
+### TEST
 python3 ~/suicide_drone_swarm/scripts/hover_test.py
 
 python3 ~/suicide_drone_swarm/scripts/balloon_strike.py 

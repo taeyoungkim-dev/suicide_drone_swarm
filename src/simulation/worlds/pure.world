@@ -13,8 +13,8 @@
       <name>target_balloon</name>
     </include>
     <scene>
-      <shadows>false</shadows> <ambient>0.4 0.4 0.4 1.0</ambient>
-      <background>0.7 0.7 0.7 1.0</background>
+      <shadows>false</shadows> <ambient>1.0 1.0 1.0 1.0</ambient>
+      <background>1.0 1.0 1.0 1.0</background>
     </scene>
 
     <physics name='default_physics' default='0' type='ode'>

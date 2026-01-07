@@ -25,7 +25,7 @@ DRONE_SPAWN_Z = -0.2
 #[10,0,-5] 기준
 #대형 패턴 변경 시 이 부분을 수정
 #줄대형
-FORMATION_PATTERN = lambda i, n: [10.0, (i - (n-1)/2) * 4.0, -5.0]
+FORMATION_PATTERN = lambda i, n: [10.0, (i - (n-1)/2) * 3.0, -5.0]
 #V자 대형
 #FORMATION_PATTERN = lambda i, n: [10.0 - abs(i - (n-1)/2) * 2.0, (i - (n-1)/2) * 2.0, -5.0]
 #역 V자 대형
