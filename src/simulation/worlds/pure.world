@@ -7,11 +7,32 @@
     <include>
       <uri>model://ground_plane</uri>
     </include>
-    <include>
-      <uri>model://red_balloon</uri>
-      <pose>0 -10 3.5 0 0 0</pose> 
-      <name>target_balloon</name>
-    </include>
+<model name="big_sphere_target">
+      <pose>0 -50 20 0 0 0</pose>
+      
+      <static>true</static>
+      
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>1.0</radius> </sphere>
+          </geometry>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>1.0</radius> </sphere>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Red</name> </script>
+          </material>
+        </visual>
+      </link>
+    </model>
     <scene>
       <shadows>false</shadows> <ambient>1.0 1.0 1.0 1.0</ambient>
       <background>1.0 1.0 1.0 1.0</background>
